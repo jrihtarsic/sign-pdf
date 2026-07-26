@@ -139,6 +139,21 @@ class PadesUtilsTest {
     }
 
     @Test
+    void signTestFile_withNullFieldSpec_signsInvisibly() throws Exception {
+        new PadesUtils().signTestFile(fileToBeSigned, signedFile, config,
+                null, "Test Signer", "Testing", "test@example.org");
+
+        assertTrue(signedFile.isFile());
+        byte[] signedBytes = Files.readAllBytes(signedFile.toPath());
+        PDSignature signature;
+        try (PDDocument document = Loader.loadPDF(signedBytes)) {
+            signature = document.getLastSignatureDictionary();
+        }
+        assertNotNull(signature, "signed PDF must still contain a signature dictionary");
+        verifyCryptographically(signedBytes, signature);
+    }
+
+    @Test
     void listAvailableSignatureFields_isEmptyForPdfWithoutSignatureFields() throws Exception {
         assertTrue(new PadesUtils().listAvailableSignatureFields(fileToBeSigned).isEmpty());
     }

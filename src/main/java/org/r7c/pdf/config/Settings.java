@@ -9,6 +9,7 @@ public class Settings {
     private Keystore keystore = new Keystore();
     private Signature signature = new Signature();
     private Output output = new Output();
+    private Ui ui = new Ui();
 
     public Keystore getKeystore() {
         return keystore;
@@ -32,6 +33,14 @@ public class Settings {
 
     public void setOutput(Output output) {
         this.output = output;
+    }
+
+    public Ui getUi() {
+        return ui;
+    }
+
+    public void setUi(Ui ui) {
+        this.ui = ui;
     }
 
     public static class Keystore {
@@ -141,6 +150,20 @@ public class Settings {
 
         public void setSuffix(String suffix) {
             this.suffix = suffix;
+        }
+    }
+
+    /** UI state persisted purely for convenience, not user-facing in the Settings dialog. */
+    public static class Ui {
+        /** Folder the "Open PDF..." dialog last opened a file from; blank means use the JVM default. */
+        private String lastOpenDir = "";
+
+        public String getLastOpenDir() {
+            return lastOpenDir;
+        }
+
+        public void setLastOpenDir(String lastOpenDir) {
+            this.lastOpenDir = lastOpenDir;
         }
     }
 }

@@ -13,6 +13,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JTextField;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -142,6 +143,13 @@ public class SettingsDialog extends JDialog {
 
     private void browseForKeystore() {
         JFileChooser chooser = new JFileChooser();
+        FileNameExtensionFilter pkcs12Filter = new FileNameExtensionFilter(
+                "PKCS12 keystore (*.p12, *.pfx)", "p12", "pfx");
+        FileNameExtensionFilter jksFilter = new FileNameExtensionFilter(
+                "JKS keystore (*.jks, *.keystore)", "jks", "keystore");
+        chooser.addChoosableFileFilter(pkcs12Filter);
+        chooser.addChoosableFileFilter(jksFilter);
+        chooser.setFileFilter("JKS".equals(keystoreTypeCombo.getSelectedItem()) ? jksFilter : pkcs12Filter);
         if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             keystorePathField.setText(chooser.getSelectedFile().getAbsolutePath());
         }
@@ -149,6 +157,8 @@ public class SettingsDialog extends JDialog {
 
     private void browseForImage() {
         JFileChooser chooser = new JFileChooser();
+        chooser.setFileFilter(new FileNameExtensionFilter(
+                "Image files (*.png, *.jpg, *.jpeg, *.gif, *.bmp)", "png", "jpg", "jpeg", "gif", "bmp"));
         if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             imagePathField.setText(chooser.getSelectedFile().getAbsolutePath());
         }
@@ -190,7 +200,7 @@ public class SettingsDialog extends JDialog {
     }
 
     private static int addRowWithBrowse(JPanel panel, GridBagConstraints gbc, int row, String label,
-                                         JTextField field, Runnable onBrowse) {
+                                        JTextField field, Runnable onBrowse) {
         gbc.gridx = 0;
         gbc.gridy = row;
         gbc.weightx = 0;

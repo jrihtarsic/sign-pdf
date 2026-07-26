@@ -64,10 +64,14 @@ public final class SettingsLoader {
         Map<String, Object> output = new LinkedHashMap<>();
         output.put("suffix", settings.getOutput().getSuffix());
 
+        Map<String, Object> ui = new LinkedHashMap<>();
+        ui.put("lastOpenDir", settings.getUi().getLastOpenDir());
+
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("keystore", keystore);
         root.put("signature", signature);
         root.put("output", output);
+        root.put("ui", ui);
 
         DumperOptions options = new DumperOptions();
         options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);

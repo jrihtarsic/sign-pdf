@@ -111,12 +111,17 @@ public class PadesUtils {
     }
 
 
+    /**
+     * @param fieldSpec where to stamp the visible signature (new rectangle or existing empty field),
+     *                  or {@code null} to sign invisibly: cryptographically valid, but with no
+     *                  stamp/box appearance on the page.
+     */
     public void signTestFile(File fToBeSigned, File fSigned,
-                              SigningConfig config,
-                              SignatureFieldSpec fieldSpec,
-                              String signerName,
-                              String purpose,
-                              String contact) throws IOException {
+                             SigningConfig config,
+                             SignatureFieldSpec fieldSpec,
+                             String signerName,
+                             String purpose,
+                             String contact) throws IOException {
 
         SimpleDateFormat msdf = new SimpleDateFormat(config.getDateTimeFormat());
         KeyStore.PasswordProtection pswdKeystore = new KeyStore.PasswordProtection(config.getKeystorePassword().toCharArray());
@@ -165,41 +170,40 @@ public class PadesUtils {
         signatureParameters.setContactInfo(contact);
 
         // -------------------------------
-        // set signature image
+        // set signature image (skipped entirely for a null fieldSpec: an invisible signature,
+        // cryptographically valid but with no stamp/box appearance on the page)
 
-        SignatureImageParameters imageParameters = new SignatureImageParameters();
-        signatureParameters.setImageParameters(imageParameters);
+        if (fieldSpec != null) {
+            SignatureImageParameters imageParameters = new SignatureImageParameters();
+            signatureParameters.setImageParameters(imageParameters);
 
-        imageParameters.setImage(new FileDocument(new File(config.getSignatureImageFile())));
+            imageParameters.setImage(new FileDocument(new File(config.getSignatureImageFile())));
 
+            SignatureFieldParameters fieldParameters = new SignatureFieldParameters();
+            if (fieldSpec.isExistingField()) {
+                fieldParameters.setFieldId(fieldSpec.getExistingFieldId());
+            } else {
+                fieldParameters.setOriginX(fieldSpec.getOriginX());
+                fieldParameters.setOriginY(fieldSpec.getOriginY());
+                fieldParameters.setWidth(fieldSpec.getWidth());
+                fieldParameters.setHeight(fieldSpec.getHeight());
+                fieldParameters.setPage(fieldSpec.getPage());
+            }
+            imageParameters.setFieldParameters(fieldParameters);
 
-        SignatureFieldParameters fieldParameters = new SignatureFieldParameters();
-        if (fieldSpec.isExistingField()) {
-            fieldParameters.setFieldId(fieldSpec.getExistingFieldId());
-        } else {
-            fieldParameters.setOriginX(fieldSpec.getOriginX());
-            fieldParameters.setOriginY(fieldSpec.getOriginY());
-            fieldParameters.setWidth(fieldSpec.getWidth());
-            fieldParameters.setHeight(fieldSpec.getHeight());
-            fieldParameters.setPage(fieldSpec.getPage());
+            // set signature text
+            SignatureImageTextParameters textParameters = new SignatureImageTextParameters();
+            textParameters.setText(String.format("Signer: %s\nDatum: %s\nCert. Izd.: %s\nSer. st.: %s",
+                    signerName,
+                    msdf.format(signDate),
+                    signatureKey.getCertificate().getIssuerX500Principal().toString(),
+                    signatureKey.getCertificate().getSerialNumber().toString()
+            ));
+            textParameters.setTextColor(Color.black);
+            textParameters.setFont(new DSSJavaFont(Font.SANS_SERIF,Font.PLAIN, 6));
+            textParameters.setSignerTextPosition(SignerTextPosition.TOP);
+            imageParameters.setTextParameters(textParameters);
         }
-        imageParameters.setFieldParameters(fieldParameters);
-
-
-        // ---------------------------
-
-        // set signature text
-        SignatureImageTextParameters textParameters = new SignatureImageTextParameters();
-        textParameters.setText(String.format("Signer: %s\nDatum: %s\nCert. Izd.: %s\nSer. st.: %s",
-                signerName,
-                msdf.format(signDate),
-                signatureKey.getCertificate().getIssuerX500Principal().toString(),
-                signatureKey.getCertificate().getSerialNumber().toString()
-                ));
-        textParameters.setTextColor(Color.black);
-        textParameters.setFont(new DSSJavaFont(Font.SANS_SERIF,Font.PLAIN, 6));
-        textParameters.setSignerTextPosition(SignerTextPosition.TOP);
-        imageParameters.setTextParameters(textParameters);
 
         // create signature service
         PAdESService service = new PAdESService(new CommonCertificateVerifier());
@@ -242,7 +246,7 @@ public class PadesUtils {
         File f = new File(file);
         PreflightParser parser = new PreflightParser(f);
         try (PreflightDocument preflightDocument = (PreflightDocument) parser.parse()){
-            ValidationResult result = preflightDocument.validate();;
+            ValidationResult result = preflightDocument.validate();
             List<ValidationError> errorsList = result.getErrorsList();
             errorsList.forEach((validationError) -> {
                 System.out.println("validationError: " + validationError.getDetails());
