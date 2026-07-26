@@ -1,10 +1,4 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package org.r7c.pdf.pades;
-
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -15,25 +9,26 @@ import eu.europa.esig.dss.enumerations.SignerTextPosition;
 import eu.europa.esig.dss.model.*;
 import eu.europa.esig.dss.pades.*;
 import eu.europa.esig.dss.pades.signature.PAdESService;
+import eu.europa.esig.dss.spi.validation.CommonCertificateVerifier;
 import eu.europa.esig.dss.token.DSSPrivateKeyEntry;
+import eu.europa.esig.dss.validation.SignedDocumentValidator;
+import eu.europa.esig.dss.validation.reports.Reports;
 
 import java.io.File;
-import java.io.InputStream;
 import java.security.KeyStore;
 import java.util.Date;
 
 import eu.europa.esig.dss.token.JKSSignatureToken;
 import eu.europa.esig.dss.token.KeyStoreSignatureTokenConnection;
 import eu.europa.esig.dss.token.Pkcs12SignatureToken;
-import eu.europa.esig.dss.validation.CommonCertificateVerifier;
-import eu.europa.esig.dss.validation.SignedDocumentValidator;
-import eu.europa.esig.dss.validation.reports.Reports;
 import java.awt.Color;
 import java.awt.Font;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.List;
 
+import org.apache.pdfbox.io.RandomAccessReadBufferedFile;
+import org.apache.pdfbox.pdfparser.PDFParser;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
 import org.apache.pdfbox.pdmodel.interactive.form.PDField;
@@ -41,97 +36,121 @@ import org.apache.pdfbox.preflight.PreflightDocument;
 import org.apache.pdfbox.preflight.ValidationResult;
 import org.apache.pdfbox.preflight.ValidationResult.ValidationError;
 import org.apache.pdfbox.preflight.parser.PreflightParser;
-import org.apache.pdfbox.preflight.utils.ByteArrayDataSource;
+import org.r7c.pdf.config.Settings;
+import org.r7c.pdf.config.SettingsLoader;
+
 
 /**
  *
  * @author Joze Rihtarsic
+ * @since 0.1
  */
 public class PadesUtils {
 
-    public static String FILE_TO_BE_SIGNED = "";
-    public static String FILE_SIGNED = "";
-    public static String KEYSTORE_FILEPATH = "";
-    public static String KEYSTORE_PASWORD = "";
-    public static String KEYSTORE_TYPE = "PKCS12";
-    public static String SIG_KEY_ALIAS = "";
-    public static String SIG_KEY_PASSWD = "";
-    public static String SIG_IMAGE_FILE = "";
-    public static String SIG_DATETIME_FORMAT = "dd. MM. yyyy HH:mm";
-
-    SimpleDateFormat msdf = new SimpleDateFormat(SIG_DATETIME_FORMAT);
-
     public static void main(String... args) throws IOException {
         System.setProperty("sun.java2d.cmm", "sun.java2d.cmm.kcms.KcmsServiceProvider");
-        PadesUtils test = new PadesUtils();
-        System.out.println("Sign test file");
-        File fSigned = new File(FILE_SIGNED);
 
+        if (args.length < 10) {
+            System.err.println("Usage: <fileToBeSigned> <fileSigned> signerName purpose contact page x y width height");
+            System.err.println("Keystore/signature-image configuration is read from settings.yaml next to the jar; "
+                    + "keystore/key passwords fall back to the KEYSTORE_PASSWORD/KEY_PASSWORD environment variables "
+                    + "when settings.yaml leaves them blank.");
+            return;
+        }
+
+        String fileToBeSigned = args[0];
+        String fileSigned = args[1];
+        String signerName = args[2];
+        String purpose = args[3];
+        String contact = args[4];
+        int page = Integer.parseInt(args[5]);
+        int x = Integer.parseInt(args[6]);
+        int y = Integer.parseInt(args[7]);
+        int w = Integer.parseInt(args[8]);
+        int h = Integer.parseInt(args[9]);
+
+        Settings settings = SettingsLoader.load(SettingsLoader.defaultSettingsFile());
+        SigningConfig config = new SigningConfig()
+                .setKeystoreFilepath(settings.getKeystore().getPath())
+                .setKeystoreType(settings.getKeystore().getType())
+                .setKeyAlias(settings.getKeystore().getKeyAlias())
+                .setSignatureImageFile(settings.getSignature().getImagePath())
+                .setDateTimeFormat(settings.getSignature().getDateTimeFormat());
+
+        String keystorePassword = settings.getKeystore().getPassword();
+        if (keystorePassword == null || keystorePassword.isBlank()) {
+            keystorePassword = System.getenv("KEYSTORE_PASSWORD");
+        }
+        String keyPassword = settings.getKeystore().getKeyPassword();
+        if (keyPassword == null || keyPassword.isBlank()) {
+            keyPassword = System.getenv("KEY_PASSWORD");
+        }
+        if (keystorePassword == null || keyPassword == null) {
+            System.err.println("Keystore/key password not set in settings.yaml; "
+                    + "set KEYSTORE_PASSWORD and KEY_PASSWORD environment variables.");
+            return;
+        }
+        config.setKeystorePassword(keystorePassword).setKeyPassword(keyPassword);
+
+        File fSigned = new File(fileSigned);
         if (fSigned.exists()) {
             fSigned.delete();
         }
 
-        String signerName = args[0];
-        String purpose = args[1];
-        String contact = args[2];
-        int page = Integer.parseInt(args[3]);
-        int x = Integer.parseInt(args[4]);
-        int y = Integer.parseInt(args[5]);
-        int w = Integer.parseInt(args[6]);
-        int h = Integer.parseInt(args[7]);
+        PadesUtils padesUtils = new PadesUtils();
+        System.out.println("Sign test file");
+        padesUtils.signTestFile(new File(fileToBeSigned), fSigned, config,
+                SignatureFieldSpec.newField(page, x, y, w, h),
+                signerName, purpose, contact);
 
-        test.signTestFile(new File(FILE_TO_BE_SIGNED), fSigned,
-                page,x,y,w,h,
-                signerName,
-                purpose,
-                contact);
-
-        // validate signature
         System.out.println("Test signature");
-        test.validateSignedFile(FILE_SIGNED);
-        // validate init document
-        System.out.println("Validate pdf/a: signed file");
-        test.validatePDFAStructure(FILE_SIGNED);
+        padesUtils.validateSignedFile(fileSigned);
 
+        System.out.println("Validate pdf/a: signed file");
+        padesUtils.validatePDFAStructure(fileSigned);
     }
 
 
     public void signTestFile(File fToBeSigned, File fSigned,
-                             int page, int x, int y, int widh, int height,
-                             String signerName,
-                             String purpose,
-                             String contact ) throws IOException {
+                              SigningConfig config,
+                              SignatureFieldSpec fieldSpec,
+                              String signerName,
+                              String purpose,
+                              String contact) throws IOException {
 
-        KeyStore.PasswordProtection pswdKeystore = new KeyStore.PasswordProtection(KEYSTORE_PASWORD.toCharArray());
-        KeyStore.PasswordProtection pswdKey = new KeyStore.PasswordProtection(SIG_KEY_PASSWD.toCharArray());
+        SimpleDateFormat msdf = new SimpleDateFormat(config.getDateTimeFormat());
+        KeyStore.PasswordProtection pswdKeystore = new KeyStore.PasswordProtection(config.getKeystorePassword().toCharArray());
+        KeyStore.PasswordProtection pswdKey = new KeyStore.PasswordProtection(config.getKeyPassword().toCharArray());
 
         // -------------------------------
         // document to be signed
 
-
-        PDDocument document = PDDocument.load(fToBeSigned);
-        // lock acroForm
-        PDAcroForm acroForm = document.getDocumentCatalog().getAcroForm();
-        if (acroForm != null) {
-            for (PDField field : acroForm.getFields()) {
-                field.setReadOnly(true);   // Lock the field
+        PDFParser pdfParser = new PDFParser(new RandomAccessReadBufferedFile(fToBeSigned));
+        ByteArrayOutputStream baos;
+        try (PDDocument document = pdfParser.parse()) {
+            // lock acroForm
+            PDAcroForm acroForm = document.getDocumentCatalog().getAcroForm();
+            if (acroForm != null) {
+                for (PDField field : acroForm.getFields()) {
+                    field.setReadOnly(true);   // Lock the field
+                }
             }
-        }
 
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        document.save(baos);
+            baos = new ByteArrayOutputStream();
+            document.save(baos);
+        }
         InMemoryDocument documentToSign = new InMemoryDocument(baos.toByteArray());
 
 
         // signature key
         KeyStoreSignatureTokenConnection token;
-        if (KEYSTORE_TYPE.equals("JKS")) {
-            token = new JKSSignatureToken(KEYSTORE_FILEPATH, pswdKeystore);
+        if ("JKS".equals(config.getKeystoreType())) {
+            token = new JKSSignatureToken(config.getKeystoreFilepath(), pswdKeystore);
         } else {
-            token = new Pkcs12SignatureToken(KEYSTORE_FILEPATH, pswdKeystore);
+            token = new Pkcs12SignatureToken(config.getKeystoreFilepath(), pswdKeystore);
         }
 
-        DSSPrivateKeyEntry signatureKey = token.getKey(SIG_KEY_ALIAS, pswdKey);
+        DSSPrivateKeyEntry signatureKey = token.getKey(config.getKeyAlias(), pswdKey);
 
         Date signDate = Calendar.getInstance().getTime();
         // -------------------------------
@@ -151,16 +170,19 @@ public class PadesUtils {
         SignatureImageParameters imageParameters = new SignatureImageParameters();
         signatureParameters.setImageParameters(imageParameters);
 
-        imageParameters.setImage(new FileDocument(new File(SIG_IMAGE_FILE)));
+        imageParameters.setImage(new FileDocument(new File(config.getSignatureImageFile())));
 
 
         SignatureFieldParameters fieldParameters = new SignatureFieldParameters();
-
-        fieldParameters.setOriginX(x);
-        fieldParameters.setOriginY(y);
-        fieldParameters.setWidth(widh);
-        fieldParameters.setHeight(height);
-        fieldParameters.setPage(page);
+        if (fieldSpec.isExistingField()) {
+            fieldParameters.setFieldId(fieldSpec.getExistingFieldId());
+        } else {
+            fieldParameters.setOriginX(fieldSpec.getOriginX());
+            fieldParameters.setOriginY(fieldSpec.getOriginY());
+            fieldParameters.setWidth(fieldSpec.getWidth());
+            fieldParameters.setHeight(fieldSpec.getHeight());
+            fieldParameters.setPage(fieldSpec.getPage());
+        }
         imageParameters.setFieldParameters(fieldParameters);
 
 
@@ -183,13 +205,22 @@ public class PadesUtils {
         PAdESService service = new PAdESService(new CommonCertificateVerifier());
         ToBeSigned dataToSign = service.getDataToSign(documentToSign, signatureParameters);
 
-        SignatureValue signatureValue = jksToken.sign(dataToSign,
+        SignatureValue signatureValue = token.sign(dataToSign,
                 signatureParameters.getDigestAlgorithm(),
                 signatureKey);
 
         DSSDocument signedDocument = service.signDocument(documentToSign, signatureParameters, signatureValue);
         signedDocument.save(fSigned.getAbsolutePath());
 
+    }
+
+    /**
+     * Lists the names of signature fields already present on the PDF that are not yet signed
+     * (i.e. eligible targets for {@link SignatureFieldSpec#existingField(String)}).
+     */
+    public List<String> listAvailableSignatureFields(File file) throws IOException {
+        PAdESService service = new PAdESService(new CommonCertificateVerifier());
+        return service.getAvailableSignatureFields(new FileDocument(file));
     }
 
     public void validateSignedFile(String file) throws IOException {
@@ -208,14 +239,10 @@ public class PadesUtils {
 
     public boolean validatePDFAStructure(String file) throws IOException {
 
-        DSSDocument doc = new FileDocument(new File(file));
-
-        try (InputStream is = doc.openStream()) {
-            PreflightParser parser = new PreflightParser(new ByteArrayDataSource(is));
-            parser.parse();
-            PreflightDocument preflightDocument = parser.getPreflightDocument();
-            preflightDocument.validate();
-            ValidationResult result = preflightDocument.getResult();
+        File f = new File(file);
+        PreflightParser parser = new PreflightParser(f);
+        try (PreflightDocument preflightDocument = (PreflightDocument) parser.parse()){
+            ValidationResult result = preflightDocument.validate();;
             List<ValidationError> errorsList = result.getErrorsList();
             errorsList.forEach((validationError) -> {
                 System.out.println("validationError: " + validationError.getDetails());

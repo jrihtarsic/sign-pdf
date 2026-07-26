@@ -9,16 +9,23 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
-	<dss.version>5.12.1</dss.version>
-	<pdfbox.version>2.0.32</pdfbox.version>
+	    <dss.version>6.4</dss.version>
+	    <pdfbox.version>3.0.8</pdfbox.version>
+        <junit.version>5.12.2</junit.version>
+        <bouncycastle.version>1.84</bouncycastle.version>
+        <snakeyaml.version>2.3</snakeyaml.version>
+        <!-- plugin versions -->
+        <plugin.maven-clean-plugin.version>3.5.0</plugin.maven-clean-plugin.version>
+        <plugin.maven-compiler-plugin.version>3.15.0</plugin.maven-compiler-plugin.version>
+        <plugin.maven-dependency-plugin.version>3.11.0</plugin.maven-dependency-plugin.version>
+        <plugin.maven-failsafe-plugin.version>3.5.6</plugin.maven-failsafe-plugin.version>
+        <plugin.maven-jar-plugin.version>3.5.1</plugin.maven-jar-plugin.version>
+        <plugin.maven-release-plugin.version>3.2.0</plugin.maven-release-plugin.version>
+        <plugin.maven-resources-plugin.version>3.4.0</plugin.maven-resources-plugin.version>
+        <plugin.maven-shade-plugin.version>3.6.0</plugin.maven-shade-plugin.version>
+        <plugin.maven-surefire-plugin.version>3.5.6</plugin.maven-surefire-plugin.version>
+        <plugin.versions-maven-plugin.version>2.21.0</plugin.versions-maven-plugin.version>
     </properties>
-    <repositories>
-        <repository>
-            <id>cefdigital</id>
-            <name>cefdigital</name>
-            <url>https://ec.europa.eu/cefdigital/artifact/content/repositories/esignaturedss/</url>
-        </repository>
-    </repositories>
     <dependencies>
         <dependency>
             <groupId>eu.europa.ec.joinup.sd-dss</groupId>
@@ -41,8 +48,23 @@
             <artifactId>dss-pades-pdfbox</artifactId>
             <version>${dss.version}</version>
         </dependency>
-
-
+        <dependency>
+            <groupId>eu.europa.ec.joinup.sd-dss</groupId>
+            <artifactId>dss-cms-object</artifactId>
+            <version>${dss.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>eu.europa.ec.joinup.sd-dss</groupId>
+            <artifactId>dss-validation</artifactId>
+            <version>${dss.version}</version>
+        </dependency>
+        <dependency>
+            <!-- SignedDocumentValidator.validateDocument() throws UnsupportedOperationException
+                 ("No ValidationPolicyFactory has been found") at runtime without this on the classpath. -->
+            <groupId>eu.europa.ec.joinup.sd-dss</groupId>
+            <artifactId>dss-policy-jaxb</artifactId>
+            <version>${dss.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>org.apache.pdfbox</groupId>
@@ -54,5 +76,150 @@
             <artifactId>preflight</artifactId>
             <version>${pdfbox.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+            <version>${snakeyaml.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <!--
+                Needed at runtime, not just for test verification: PAdESService/CommonCertificateVerifier
+                pull in org.bouncycastle.tsp/cms classes that only live in bcpkix (bcprov alone isn't
+                enough). It was previously test-scoped, which happened to work under `mvn test` (whose
+                classpath includes test-scope jars) but breaks any standalone/packaged run of the app.
+            -->
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpkix-jdk18on</artifactId>
+            <version>${bouncycastle.version}</version>
+        </dependency>
     </dependencies>
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${plugin.maven-surefire-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <version>${plugin.maven-failsafe-plugin.version}</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <version>${plugin.maven-dependency-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-shade-plugin</artifactId>
+                    <version>${plugin.maven-shade-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-clean-plugin</artifactId>
+                    <version>${plugin.maven-clean-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${plugin.maven-compiler-plugin.version}</version>
+                    <configuration>
+                        <compilerArgs>
+                            <arg>-parameters</arg>
+                        </compilerArgs>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>${plugin.maven-jar-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>versions-maven-plugin</artifactId>
+                    <version>${plugin.versions-maven-plugin.version}</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+        <plugins>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>build-jar-with-dependencies</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <shadedClassifierName>jar-with-dependencies</shadedClassifierName>
+                            <filters>
+                                <filter>
+                                    <!--
+                                        Signed dependency jars (e.g. BouncyCastle) carry a manifest
+                                        digest/signature that no longer matches once their classes are
+                                        merged into this jar; without stripping it the JVM refuses to
+                                        load classes from the result with a SecurityException.
+                                    -->
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>META-INF/*.EC</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <!--
+                                Several DSS modules (dss-pades, dss-cades, dss-validation, ...) register
+                                different implementations under the *same* META-INF/services file name
+                                (e.g. eu.europa.esig.dss.validation.DocumentValidatorFactory). A plain
+                                jar-with-dependencies merge picks one file and silently drops the rest,
+                                which breaks SignedDocumentValidator's format detection (PDF stops being
+                                recognized) even though everything still compiles. The shade plugin's
+                                ServicesResourceTransformer concatenates same-named service files instead.
+                            -->
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>org.r7c.pdf.ui.SignPdfApp</mainClass>
+                                </transformer>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>versions-maven-plugin</artifactId>
+                <!--To update only bugfix versions mvn versions:update-properties -DallowSnapshots=false -DallowMajorUpdates=false -DallowMinorUpdates=false -->
+                <!--To update minor versions  mvn versions:update-properties -DallowSnapshots=false -DallowMajorUpdates=false  -->
+                <configuration>
+                    <!-- ignore non numeric versions!-->
+                    <ignoredVersions>java(?i).*-(alpha|beta|m|rc|published-by-mistake)([-.]?\d+)?</ignoredVersions>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
+
