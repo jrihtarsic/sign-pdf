@@ -1,3 +1,21 @@
+/*-
+ * #START_LICENSE#
+ * sign-pdf
+ * %%
+ * Copyright (C) 2017 - 2026 org.r7c | sign-pdf
+ * %%
+ * Licensed under the EUPL, Version 1.2 or – as soon they will be approved by the European Commission - subsequent
+ * versions of the EUPL (the "Licence");
+ * You may not use this work except in compliance with the Licence.
+ * You may obtain a copy of the Licence at:
+ * 
+ * [PROJECT_HOME]\license\eupl-1.2\license.txt or https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+ * 
+ * Unless required by applicable law or agreed to in writing, software distributed under the Licence is
+ * distributed on an "AS IS" basis, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the Licence for the specific language governing permissions and limitations under the Licence.
+ * #END_LICENSE#
+ */
 package org.r7c.pdf.config;
 
 import org.yaml.snakeyaml.DumperOptions;
@@ -12,26 +30,108 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Writer;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
- * Loads/saves {@link Settings} from/to a YAML file. The default location is {@code settings.yaml}
- * next to the running jar, so both the CLI entry point and the UI share one file.
+ * Loads/saves {@link Settings} from/to a YAML file. The file is always named {@code settings.yaml};
+ * which directory it lives in is resolved via {@link #resolveExistingSettingsFile(String)} /
+ * {@link #resolveSettingsFileForSave()} so the CLI entry point and the UI can share one file even
+ * when it isn't sitting next to the jar. See {@code settings.md} for the full design.
  */
 public final class SettingsLoader {
+
+    private static final String SETTINGS_FILE_NAME = "settings.yaml";
+    private static final String SPDF_SETTINGS_PROPERTY = "spdf.settings";
+    private static final String USER_FOLDER_RELATIVE_PATH = ".warp/sign-pdf";
 
     private SettingsLoader() {
     }
 
-    public static File defaultSettingsFile() {
+    /**
+     * Search order for an already-existing {@code settings.yaml}: {@code spdf.settings} system
+     * property, then {@code cliDirOverride} (the CLI's {@code -s <dir>} flag; {@code null} from the
+     * UI, which has no argv), then {@code ~/.warp/sign-pdf/}, then the current working directory,
+     * then the folder containing the running jar. Returns {@code null} if none of them have one.
+     */
+    public static File resolveExistingSettingsFile(String cliDirOverride) {
+        for (File dir : candidateDirsForLoad(cliDirOverride)) {
+            File file = new File(dir, SETTINGS_FILE_NAME);
+            if (file.isFile()) {
+                return file;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Where a brand-new {@code settings.yaml} should be written when none exists yet:
+     * {@code spdf.settings} system property (if set), else {@code ~/.warp/sign-pdf/} (created if
+     * missing), else the current working directory, else the folder containing the running jar.
+     */
+    public static File resolveSettingsFileForSave() {
+        File propertyDir = propertyDir();
+        if (propertyDir != null) {
+            return new File(propertyDir, SETTINGS_FILE_NAME);
+        }
+        File userFolder = userFolderDir();
+        if (userFolder.isDirectory() || userFolder.mkdirs()) {
+            return new File(userFolder, SETTINGS_FILE_NAME);
+        }
+        File workDir = workDir();
+        if (workDir.isDirectory()) {
+            return new File(workDir, SETTINGS_FILE_NAME);
+        }
+        return new File(jarDir(), SETTINGS_FILE_NAME);
+    }
+
+    /**
+     * The file to use for the rest of a run: an existing {@code settings.yaml} if one is found via
+     * {@link #resolveExistingSettingsFile(String)}, otherwise the save target chosen by
+     * {@link #resolveSettingsFileForSave()} (not yet created on disk).
+     */
+    public static File resolveSettingsFile(String cliDirOverride) {
+        File existing = resolveExistingSettingsFile(cliDirOverride);
+        return existing != null ? existing : resolveSettingsFileForSave();
+    }
+
+    private static List<File> candidateDirsForLoad(String cliDirOverride) {
+        List<File> candidates = new ArrayList<>();
+        File propertyDir = propertyDir();
+        if (propertyDir != null) {
+            candidates.add(propertyDir);
+        }
+        if (cliDirOverride != null && !cliDirOverride.isBlank()) {
+            candidates.add(new File(cliDirOverride));
+        }
+        candidates.add(userFolderDir());
+        candidates.add(workDir());
+        candidates.add(jarDir());
+        return candidates;
+    }
+
+    private static File propertyDir() {
+        String property = System.getProperty(SPDF_SETTINGS_PROPERTY);
+        return (property != null && !property.isBlank()) ? new File(property) : null;
+    }
+
+    private static File userFolderDir() {
+        return new File(System.getProperty("user.home"), USER_FOLDER_RELATIVE_PATH);
+    }
+
+    private static File workDir() {
+        return new File(System.getProperty("user.dir"));
+    }
+
+    private static File jarDir() {
         try {
             File location = new File(SettingsLoader.class.getProtectionDomain()
                     .getCodeSource().getLocation().toURI());
-            File dir = location.isFile() ? location.getParentFile() : location;
-            return new File(dir, "settings.yaml");
+            return location.isFile() ? location.getParentFile() : location;
         } catch (URISyntaxException | NullPointerException e) {
-            return new File("settings.yaml");
+            return workDir();
         }
     }
 
@@ -57,6 +157,7 @@ public final class SettingsLoader {
         Map<String, Object> signature = new LinkedHashMap<>();
         signature.put("imagePath", settings.getSignature().getImagePath());
         signature.put("dateTimeFormat", settings.getSignature().getDateTimeFormat());
+        signature.put("textTemplate", settings.getSignature().getTextTemplate());
         signature.put("defaultSignerName", settings.getSignature().getDefaultSignerName());
         signature.put("defaultPurpose", settings.getSignature().getDefaultPurpose());
         signature.put("defaultContact", settings.getSignature().getDefaultContact());

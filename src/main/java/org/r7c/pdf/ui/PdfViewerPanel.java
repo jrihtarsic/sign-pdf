@@ -1,3 +1,21 @@
+/*-
+ * #START_LICENSE#
+ * sign-pdf
+ * %%
+ * Copyright (C) 2017 - 2026 org.r7c | sign-pdf
+ * %%
+ * Licensed under the EUPL, Version 1.2 or – as soon they will be approved by the European Commission - subsequent
+ * versions of the EUPL (the "Licence");
+ * You may not use this work except in compliance with the Licence.
+ * You may obtain a copy of the Licence at:
+ * 
+ * [PROJECT_HOME]\license\eupl-1.2\license.txt or https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+ * 
+ * Unless required by applicable law or agreed to in writing, software distributed under the Licence is
+ * distributed on an "AS IS" basis, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the Licence for the specific language governing permissions and limitations under the Licence.
+ * #END_LICENSE#
+ */
 package org.r7c.pdf.ui;
 
 import org.apache.pdfbox.Loader;
@@ -13,6 +31,8 @@ import java.awt.Color;
 import java.awt.Container;
 import java.awt.Cursor;
 import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
@@ -50,6 +70,7 @@ public class PdfViewerPanel extends JPanel {
     private static final int MIN_SELECTION_PX = 5;
     /** Mat around the rendered page, in component pixels; keeps the page off the panel's raw edge. */
     private static final int PAGE_MARGIN = 28;
+    private static final String SELECTION_LABEL = "Signature visualization";
 
     /** Size, in PDF points, of the rectangle placed by default in the page's top-right corner. */
     private static final float DEFAULT_FIELD_WIDTH_PT = 200f;
@@ -585,11 +606,27 @@ public class PdfViewerPanel extends JPanel {
             g2.setStroke(new BasicStroke(1.5f));
             g2.setColor(UiTheme.ACCENT);
             g2.drawRect(sx, sy, selection.width, selection.height);
+            drawSelectionLabel(g2, sx, sy);
             if (selectionEnabled) {
                 drawHandles(g2, sx, sy);
             }
         }
         g2.dispose();
+    }
+
+    private void drawSelectionLabel(Graphics2D g2, int sx, int sy) {
+        Font labelFont = new Font(Font.SANS_SERIF, Font.PLAIN, 11);
+        g2.setFont(labelFont);
+        FontMetrics fm = g2.getFontMetrics();
+        int textWidth = fm.stringWidth(SELECTION_LABEL);
+        int textHeight = fm.getHeight();
+        if (textWidth + 8 > selection.width || textHeight + 4 > selection.height) {
+            return;
+        }
+        int textX = sx + (selection.width - textWidth) / 2;
+        int textY = sy + (selection.height - textHeight) / 2 + fm.getAscent();
+        g2.setColor(UiTheme.ACCENT);
+        g2.drawString(SELECTION_LABEL, textX, textY);
     }
 
     private void drawHandles(Graphics2D g2, int sx, int sy) {

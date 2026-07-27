@@ -1,3 +1,37 @@
+/*-
+ * #START_LICENSE#
+ * sign-pdf
+ * %%
+ * Copyright (C) 2017 - 2026 org.r7c | sign-pdf
+ * %%
+ * Licensed under the EUPL, Version 1.2 or – as soon they will be approved by the European Commission - subsequent
+ * versions of the EUPL (the "Licence");
+ * You may not use this work except in compliance with the Licence.
+ * You may obtain a copy of the Licence at:
+ * 
+ * [PROJECT_HOME]\license\eupl-1.2\license.txt or https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+ * 
+ * Unless required by applicable law or agreed to in writing, software distributed under the Licence is
+ * distributed on an "AS IS" basis, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the Licence for the specific language governing permissions and limitations under the Licence.
+ * #END_LICENSE#
+ */
+/*
+ * sign-pdf
+ *
+ * Copyright (C) 2025 - 2026  Warpsource d.o.o.
+ *
+ * Licensed under the EUPL, Version 1.2 or – as soon they will be approved by the European Commission - subsequent
+ * versions of the EUPL (the "Licence");
+ * You may not use this work except in compliance with the Licence.
+ * You may obtain a copy of the Licence at:
+ *
+ * [PROJECT_HOME]\license\eupl-1.2\license.txt or https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the Licence is
+ * distributed on an "AS IS" basis, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the Licence for the specific language governing permissions and limitations under the Licence.
+ */
 package org.r7c.pdf.pades;
 
 import eu.europa.esig.dss.model.DSSDocument;
@@ -168,6 +202,23 @@ class PadesUtilsTest {
         boolean result = padesUtils.validatePDFAStructure(signedFile.getAbsolutePath());
         assertEquals(result, padesUtils.validatePDFAStructure(signedFile.getAbsolutePath()),
                 "PDF/A structural validation must be deterministic across repeated runs");
+    }
+
+    @Test
+    void renderSignatureText_substitutesOnlyPlaceholdersPresentInTemplate() {
+        String rendered = PadesUtils.renderSignatureText("Signer: ${NAME}\nDate: ${DATETIME}",
+                "Jane Doe", "27. 07. 2026 10:00", "CN=Issuer", "12345");
+
+        assertEquals("Signer: Jane Doe\nDate: 27. 07. 2026 10:00", rendered);
+    }
+
+    @Test
+    void renderSignatureText_blankTemplateFallsBackToDefault() {
+        String rendered = PadesUtils.renderSignatureText("   ",
+                "Jane Doe", "27. 07. 2026 10:00", "CN=Issuer", "12345");
+
+        assertEquals("Signer: Jane Doe\nDatum: 27. 07. 2026 10:00\nCert. Izd.: CN=Issuer\nSer. st.: 12345",
+                rendered);
     }
 
     private void verifyCryptographically(byte[] signedBytes, PDSignature signature) throws Exception {

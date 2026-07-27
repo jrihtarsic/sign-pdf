@@ -1,11 +1,41 @@
+/*-
+ * #START_LICENSE#
+ * sign-pdf
+ * %%
+ * Copyright (C) 2017 - 2026 org.r7c | sign-pdf
+ * %%
+ * Licensed under the EUPL, Version 1.2 or – as soon they will be approved by the European Commission - subsequent
+ * versions of the EUPL (the "Licence");
+ * You may not use this work except in compliance with the Licence.
+ * You may obtain a copy of the Licence at:
+ * 
+ * [PROJECT_HOME]\license\eupl-1.2\license.txt or https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+ * 
+ * Unless required by applicable law or agreed to in writing, software distributed under the Licence is
+ * distributed on an "AS IS" basis, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the Licence for the specific language governing permissions and limitations under the Licence.
+ * #END_LICENSE#
+ */
+
+/*
+ * sign-pdf
+ *
+ * Copyright (C) 2025 - 2026  Owner of the domain org.r7c
+ *
+ * Licensed under the EUPL, Version 1.2 or – as soon they will be approved by the European Commission - subsequent
+ * versions of the EUPL (the "Licence");
+ * You may not use this work except in compliance with the Licence.
+ * You may obtain a copy of the Licence at:
+ *
+ * [PROJECT_HOME]\license\eupl-1.2\license.txt or https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the Licence is
+ * distributed on an "AS IS" basis, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the Licence for the specific language governing permissions and limitations under the Licence.
+ */
 package org.r7c.pdf.ui;
 
-import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.pdmodel.PDDocument;
 import org.junit.jupiter.api.Test;
-
-import java.io.File;
-import java.nio.file.Files;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -20,7 +50,7 @@ class CoordinateConverterTest {
         float[] rect = CoordinateConverter.screenRectToPdfPoints(0, 60, 150, 60, scale);
 
         assertEquals(0f, rect[0], DELTA);
-        assertEquals( 40f, rect[1], DELTA); // 60px / 1.5 = 40pt tall, f
+        assertEquals(40f, rect[1], DELTA); // 60px / 1.5 = 40pt tall, f
         assertEquals(100f, rect[2], DELTA); // 150px / 1.5
         assertEquals(40f, rect[3], DELTA);  // 60px / 1.5
     }

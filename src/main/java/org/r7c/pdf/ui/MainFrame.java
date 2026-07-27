@@ -1,3 +1,21 @@
+/*-
+ * #START_LICENSE#
+ * sign-pdf
+ * %%
+ * Copyright (C) 2017 - 2026 org.r7c | sign-pdf
+ * %%
+ * Licensed under the EUPL, Version 1.2 or – as soon they will be approved by the European Commission - subsequent
+ * versions of the EUPL (the "Licence");
+ * You may not use this work except in compliance with the Licence.
+ * You may obtain a copy of the Licence at:
+ * 
+ * [PROJECT_HOME]\license\eupl-1.2\license.txt or https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+ * 
+ * Unless required by applicable law or agreed to in writing, software distributed under the Licence is
+ * distributed on an "AS IS" basis, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the Licence for the specific language governing permissions and limitations under the Licence.
+ * #END_LICENSE#
+ */
 package org.r7c.pdf.ui;
 
 import org.r7c.pdf.config.Settings;
@@ -55,13 +73,13 @@ import java.io.IOException;
 public class MainFrame extends JFrame {
 
     private final PadesUtils padesUtils = new PadesUtils();
-    private final File settingsFile = SettingsLoader.defaultSettingsFile();
+    private final File settingsFile;
     private Settings settings;
 
     private File currentPdfFile;
 
     private final PdfViewerPanel viewerPanel = new PdfViewerPanel();
-    private final JCheckBox showSignatureCheckBox = new JCheckBox("Show signature", true);
+    private final JCheckBox showSignatureCheckBox = new JCheckBox("Add signature visualisation", true);
     private final JButton openButton = new JButton("Open PDF...");
     private final JLabel pageLabel = new JLabel("-");
     private final JButton prevPageButton = new JButton("‹ Prev");
@@ -82,7 +100,9 @@ public class MainFrame extends JFrame {
 
     public MainFrame() throws IOException {
         super("sign-pdf");
+        settingsFile = SettingsLoader.resolveSettingsFile(null);
         settings = SettingsLoader.load(settingsFile);
+        log("Settings file: " + settingsFile.getAbsolutePath());
 
         setJMenuBar(buildMenuBar());
         JScrollPane viewerScroll = new JScrollPane(viewerPanel);
@@ -93,12 +113,16 @@ public class MainFrame extends JFrame {
         // (temporarily wider) extent, leaving the fitted page just slightly too wide.
         viewerScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
 
+        JPanel viewerPanelWithToolBar = new JPanel(new BorderLayout());
+        viewerPanelWithToolBar.add(buildViewerToolBar(), BorderLayout.NORTH);
+        viewerPanelWithToolBar.add(viewerScroll, BorderLayout.CENTER);
+
         JPanel southPanel = new JPanel(new BorderLayout());
         southPanel.add(buildLogPanel(), BorderLayout.CENTER);
         southPanel.add(buildStatusBar(), BorderLayout.SOUTH);
 
         getContentPane().add(buildToolBar(), BorderLayout.NORTH);
-        getContentPane().add(viewerScroll, BorderLayout.CENTER);
+        getContentPane().add(viewerPanelWithToolBar, BorderLayout.CENTER);
         getContentPane().add(buildSidebar(), BorderLayout.EAST);
         getContentPane().add(southPanel, BorderLayout.SOUTH);
 
@@ -139,7 +163,6 @@ public class MainFrame extends JFrame {
         toolBar.setBackground(Color.WHITE);
         toolBar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UiTheme.BORDER));
         toolBar.add(buildActionsRow());
-        toolBar.add(buildNavigationRow());
         return toolBar;
     }
 
@@ -159,23 +182,29 @@ public class MainFrame extends JFrame {
         return row;
     }
 
-    /** Smaller, secondary row: page navigation, zoom, and fit controls. */
-    private JPanel buildNavigationRow() {
-        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, UiTheme.SPACING_SM, 2));
-        row.setBackground(Color.WHITE);
+    /**
+     * Compact, dark toolbar for the PDF viewer itself: page navigation, zoom, and fit controls,
+     * docked directly above {@link #viewerPanel} rather than grouped with the main action buttons.
+     */
+    private JPanel buildViewerToolBar() {
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, UiTheme.SPACING_SM, 1));
+        row.setBackground(UiTheme.VIEWER_TOOLBAR_BG);
         row.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(1, 0, 0, 0, UiTheme.BORDER),
-                BorderFactory.createEmptyBorder(2, UiTheme.SPACING_MD, 4, UiTheme.SPACING_MD)));
+                BorderFactory.createMatteBorder(0, 0, 1, 0, UiTheme.VIEWER_TOOLBAR_BORDER),
+                BorderFactory.createEmptyBorder(1, UiTheme.SPACING_MD, 1, UiTheme.SPACING_MD)));
 
         for (JButton button : new JButton[]{
                 prevPageButton, nextPageButton, zoomOutButton, zoomInButton, fitWidthButton, fitPageButton}) {
             button.setFont(button.getFont().deriveFont(11f));
-            button.setMargin(new Insets(1, 7, 1, 7));
+            button.setBackground(UiTheme.VIEWER_TOOLBAR_BG);
+            button.setForeground(Color.LIGHT_GRAY);
+            button.setMargin(new Insets(0, 5, 0, 5));
+            button.setFocusPainted(false);
         }
 
         prevPageButton.addActionListener(e -> withIoErrorDialog(viewerPanel::prevPage, this::updatePageLabel));
         nextPageButton.addActionListener(e -> withIoErrorDialog(viewerPanel::nextPage, this::updatePageLabel));
-        pageLabel.setForeground(UiTheme.TEXT_MUTED);
+        pageLabel.setForeground(UiTheme.VIEWER_TOOLBAR_TEXT_MUTED);
         pageLabel.setBorder(BorderFactory.createEmptyBorder(0, UiTheme.SPACING_SM, 0, UiTheme.SPACING_SM));
 
         zoomOutButton.setToolTipText("Zoom out (Ctrl+-)");
@@ -203,7 +232,8 @@ public class MainFrame extends JFrame {
 
     private static JSeparator verticalDivider() {
         JSeparator divider = new JSeparator(SwingConstants.VERTICAL);
-        divider.setPreferredSize(new Dimension(1, 20));
+        divider.setPreferredSize(new Dimension(1, 16));
+        divider.setForeground(UiTheme.VIEWER_TOOLBAR_BORDER);
         return divider;
     }
 
@@ -536,7 +566,8 @@ public class MainFrame extends JFrame {
                 .setKeystorePassword(keystorePassword)
                 .setKeyPassword(keyPassword)
                 .setSignatureImageFile(settings.getSignature().getImagePath())
-                .setDateTimeFormat(settings.getSignature().getDateTimeFormat());
+                .setDateTimeFormat(settings.getSignature().getDateTimeFormat())
+                .setSignatureTextTemplate(settings.getSignature().getTextTemplate());
     }
 
     private File chooseOutputFile() {

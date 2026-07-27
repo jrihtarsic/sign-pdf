@@ -1,3 +1,21 @@
+/*-
+ * #START_LICENSE#
+ * sign-pdf
+ * %%
+ * Copyright (C) 2017 - 2026 org.r7c | sign-pdf
+ * %%
+ * Licensed under the EUPL, Version 1.2 or – as soon they will be approved by the European Commission - subsequent
+ * versions of the EUPL (the "Licence");
+ * You may not use this work except in compliance with the Licence.
+ * You may obtain a copy of the Licence at:
+ * 
+ * [PROJECT_HOME]\license\eupl-1.2\license.txt or https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+ * 
+ * Unless required by applicable law or agreed to in writing, software distributed under the Licence is
+ * distributed on an "AS IS" basis, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the Licence for the specific language governing permissions and limitations under the Licence.
+ * #END_LICENSE#
+ */
 package org.r7c.pdf.ui;
 
 import org.r7c.pdf.config.Settings;
@@ -12,6 +30,8 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.BorderLayout;
@@ -44,6 +64,7 @@ public class SettingsDialog extends JDialog {
     private final JPasswordField keyPasswordField = new JPasswordField(28);
     private final JTextField imagePathField = new JTextField(28);
     private final JTextField dateTimeFormatField = new JTextField(28);
+    private final JTextArea textTemplateField = new JTextArea(4, 28);
     private final JTextField defaultSignerNameField = new JTextField(28);
     private final JTextField defaultPurposeField = new JTextField(28);
     private final JTextField defaultContactField = new JTextField(28);
@@ -75,6 +96,10 @@ public class SettingsDialog extends JDialog {
         row = addSectionLabel(form, gbc, row, "Signature appearance", false);
         row = addRowWithBrowse(form, gbc, row, "Image path:", imagePathField, this::browseForImage);
         row = addRow(form, gbc, row, "Date/time format:", dateTimeFormatField);
+        textTemplateField.setLineWrap(true);
+        textTemplateField.setWrapStyleWord(true);
+        row = addRow(form, gbc, row, "Text template:", new JScrollPane(textTemplateField));
+        row = addHint(form, gbc, row, "Placeholders: ${NAME}, ${DATETIME}, ${ISSUER}, ${SERIAL}");
         row = addRow(form, gbc, row, "Default signer name:", defaultSignerNameField);
         row = addRow(form, gbc, row, "Default purpose:", defaultPurposeField);
         row = addRow(form, gbc, row, "Default contact:", defaultContactField);
@@ -112,6 +137,7 @@ public class SettingsDialog extends JDialog {
         keyPasswordField.setText(settings.getKeystore().getKeyPassword());
         imagePathField.setText(settings.getSignature().getImagePath());
         dateTimeFormatField.setText(settings.getSignature().getDateTimeFormat());
+        textTemplateField.setText(settings.getSignature().getTextTemplate());
         defaultSignerNameField.setText(settings.getSignature().getDefaultSignerName());
         defaultPurposeField.setText(settings.getSignature().getDefaultPurpose());
         defaultContactField.setText(settings.getSignature().getDefaultContact());
@@ -126,6 +152,7 @@ public class SettingsDialog extends JDialog {
         settings.getKeystore().setKeyPassword(new String(keyPasswordField.getPassword()));
         settings.getSignature().setImagePath(imagePathField.getText().trim());
         settings.getSignature().setDateTimeFormat(dateTimeFormatField.getText().trim());
+        settings.getSignature().setTextTemplate(textTemplateField.getText());
         settings.getSignature().setDefaultSignerName(defaultSignerNameField.getText().trim());
         settings.getSignature().setDefaultPurpose(defaultPurposeField.getText().trim());
         settings.getSignature().setDefaultContact(defaultContactField.getText().trim());
@@ -183,6 +210,19 @@ public class SettingsDialog extends JDialog {
         panel.add(label, gbc);
         gbc.gridwidth = 1;
         gbc.insets = new Insets(4, 4, 4, 4);
+        return row + 1;
+    }
+
+    private static int addHint(JPanel panel, GridBagConstraints gbc, int row, String text) {
+        gbc.gridx = 1;
+        gbc.gridy = row;
+        gbc.gridwidth = 2;
+        gbc.weightx = 1;
+        JLabel label = new JLabel(text);
+        label.setFont(label.getFont().deriveFont(Font.ITALIC, 11f));
+        label.setForeground(Color.GRAY);
+        panel.add(label, gbc);
+        gbc.gridwidth = 1;
         return row + 1;
     }
 

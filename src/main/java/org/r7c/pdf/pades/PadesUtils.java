@@ -1,3 +1,21 @@
+/*-
+ * #START_LICENSE#
+ * sign-pdf
+ * %%
+ * Copyright (C) 2017 - 2026 org.r7c | sign-pdf
+ * %%
+ * Licensed under the EUPL, Version 1.2 or – as soon they will be approved by the European Commission - subsequent
+ * versions of the EUPL (the "Licence");
+ * You may not use this work except in compliance with the Licence.
+ * You may obtain a copy of the Licence at:
+ * 
+ * [PROJECT_HOME]\license\eupl-1.2\license.txt or https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+ * 
+ * Unless required by applicable law or agreed to in writing, software distributed under the Licence is
+ * distributed on an "AS IS" basis, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the Licence for the specific language governing permissions and limitations under the Licence.
+ * #END_LICENSE#
+ */
 package org.r7c.pdf.pades;
 
 import java.io.ByteArrayOutputStream;
@@ -24,6 +42,7 @@ import eu.europa.esig.dss.token.Pkcs12SignatureToken;
 import java.awt.Color;
 import java.awt.Font;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
@@ -50,9 +69,26 @@ public class PadesUtils {
     public static void main(String... args) throws IOException {
         System.setProperty("sun.java2d.cmm", "sun.java2d.cmm.kcms.KcmsServiceProvider");
 
+        String settingsDir = null;
+        List<String> positional = new ArrayList<>();
+        for (int i = 0; i < args.length; i++) {
+            if ("-s".equals(args[i])) {
+                if (i + 1 >= args.length) {
+                    System.err.println("-s requires a directory argument");
+                    return;
+                }
+                settingsDir = args[++i];
+            } else {
+                positional.add(args[i]);
+            }
+        }
+        args = positional.toArray(new String[0]);
+
         if (args.length < 10) {
-            System.err.println("Usage: <fileToBeSigned> <fileSigned> signerName purpose contact page x y width height");
-            System.err.println("Keystore/signature-image configuration is read from settings.yaml next to the jar; "
+            System.err.println("Usage: [-s <settingsDir>] <fileToBeSigned> <fileSigned> signerName purpose contact page x y width height");
+            System.err.println("Keystore/signature-image configuration is read from settings.yaml, resolved via the "
+                    + "spdf.settings system property, -s <dir>, ~/.warp/sign-pdf/, the working directory, or the "
+                    + "folder next to the jar (first match wins); "
                     + "keystore/key passwords fall back to the KEYSTORE_PASSWORD/KEY_PASSWORD environment variables "
                     + "when settings.yaml leaves them blank.");
             return;
@@ -69,13 +105,16 @@ public class PadesUtils {
         int w = Integer.parseInt(args[8]);
         int h = Integer.parseInt(args[9]);
 
-        Settings settings = SettingsLoader.load(SettingsLoader.defaultSettingsFile());
+        File settingsFile = SettingsLoader.resolveSettingsFile(settingsDir);
+        System.err.println("Settings file: " + settingsFile.getAbsolutePath());
+        Settings settings = SettingsLoader.load(settingsFile);
         SigningConfig config = new SigningConfig()
                 .setKeystoreFilepath(settings.getKeystore().getPath())
                 .setKeystoreType(settings.getKeystore().getType())
                 .setKeyAlias(settings.getKeystore().getKeyAlias())
                 .setSignatureImageFile(settings.getSignature().getImagePath())
-                .setDateTimeFormat(settings.getSignature().getDateTimeFormat());
+                .setDateTimeFormat(settings.getSignature().getDateTimeFormat())
+                .setSignatureTextTemplate(settings.getSignature().getTextTemplate());
 
         String keystorePassword = settings.getKeystore().getPassword();
         if (keystorePassword == null || keystorePassword.isBlank()) {
@@ -193,7 +232,7 @@ public class PadesUtils {
 
             // set signature text
             SignatureImageTextParameters textParameters = new SignatureImageTextParameters();
-            textParameters.setText(String.format("Signer: %s\nDatum: %s\nCert. Izd.: %s\nSer. st.: %s",
+            textParameters.setText(renderSignatureText(config.getSignatureTextTemplate(),
                     signerName,
                     msdf.format(signDate),
                     signatureKey.getCertificate().getIssuerX500Principal().toString(),
@@ -216,6 +255,24 @@ public class PadesUtils {
         DSSDocument signedDocument = service.signDocument(documentToSign, signatureParameters, signatureValue);
         signedDocument.save(fSigned.getAbsolutePath());
 
+    }
+
+    /**
+     * Fills a visible-signature text template with named placeholders: {@code ${NAME}},
+     * {@code ${DATETIME}}, {@code ${ISSUER}}, {@code ${SERIAL}}. A blank/null template falls back to
+     * {@link org.r7c.pdf.config.Settings.Signature#DEFAULT_TEXT_TEMPLATE}; placeholders the template
+     * doesn't reference are simply not written.
+     */
+    static String renderSignatureText(String template, String signerName, String formattedDate,
+                                      String certIssuer, String certSerial) {
+        String resolved = (template == null || template.isBlank())
+                ? Settings.Signature.DEFAULT_TEXT_TEMPLATE
+                : template;
+        return resolved
+                .replace("${NAME}", signerName)
+                .replace("${DATETIME}", formattedDate)
+                .replace("${ISSUER}", certIssuer)
+                .replace("${SERIAL}", certSerial);
     }
 
     /**
